@@ -27,6 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+static struct list sleep_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -59,6 +60,7 @@ static void kernel_thread (thread_func *, void *aux);
 static void idle (void *aux UNUSED);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
+static void thread_sleep();
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
@@ -105,9 +107,10 @@ thread_init (void) {
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -235,14 +238,20 @@ thread_block (void) {
 void
 thread_unblock (struct thread *t) {
 	enum intr_level old_level;
+	list_less_func *cmp_priority;	// 코드 수정 필요!! 파라미터 때문에 일단 넣어둔 것
 
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	// list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
+}
+
+void cmp_priority () {
+
 }
 
 /* Returns the name of the running thread. */
@@ -306,6 +315,23 @@ thread_yield (void) {
 		list_push_back (&ready_list, &curr->elem);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
+}
+
+void
+thread_sleep(int64_t ticks) {
+	struct thread *cur;
+	enum intr_level old_level;
+
+	old_level = intr_disable();					// 스레드 리스트 조작 예정이므로 인터럽트 OFF
+	cur = thread_current();
+	ASSERT (cur != idle_thread);
+
+	cur->wakeup_tick = ticks;					// 일어날 시간 저장
+	list_push_back (&sleep_list, &cur->elem);	// sleep_list 에 추가
+	thread_block ();							// block 상태로 변경
+
+	intr_set_level (old_level);					// 인터럽트 ON
+
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
