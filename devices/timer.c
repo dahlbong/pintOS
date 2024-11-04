@@ -87,14 +87,11 @@ timer_elapsed (int64_t then) {
 	return timer_ticks () - then;
 }
 
-/* Suspends execution for approximately TICKS timer ticks. */
+/* 스레드한테 재우라고 알람 울리기 */
 void
-timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
-
-	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+timer_sleep (int64_t ticks) {			// ticks: 대기 시간
+	int64_t start = timer_ticks ();		// 현재 틱 == OS가 부팅된 이후 현재까지의 총 틱 수 == 현재 시간
+	thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -121,11 +118,13 @@ timer_print_stats (void) {
 	printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
-/* Timer interrupt handler. */
+/* Timer interrupt handler. 
+	-> 매 tick마다 호출되며, 대기 중인 스레드 중에서 깨어날 시간이 된 스레드를 찾아 ready_list로 이동시킴 */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+	thread_tick ();		// update the cpu usage for running process
+	thread_awake(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -168,7 +167,7 @@ real_time_sleep (int64_t num, int32_t denom) {
 	   ---------------------- = NUM * TIMER_FREQ / DENOM ticks.
 	   1 s / TIMER_FREQ ticks
 	   */
-	int64_t ticks = num * TIMER_FREQ / denom;
+	int64_t ticks = num * TIMER_FREQ / denom;		// num/denom이 몇 tick인지 구하는 식  (TIMER_FREQ: 1초동안 발생하는 tick 수)
 
 	ASSERT (intr_get_level () == INTR_ON);
 	if (ticks > 0) {
