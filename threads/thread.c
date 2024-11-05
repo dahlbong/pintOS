@@ -342,15 +342,15 @@ thread_awake(int64_t ticks) {
 		(2) find any threads to wake up
 		(3) move them to the ready list if necessary	
 		(4) update the global tick 						// timer_interrupt()*/
-	struct list_elem *elem = list_begin(&sleep_list);
+	struct list_elem *le = list_begin(&sleep_list);
 
-	while (elem != list_end(&sleep_list)) {
-		struct thread *cur = list_entry(elem, struct thread, elem);
+	while (le != list_end(&sleep_list)) {
+		struct thread *cur = list_entry(le, struct thread, elem);
 
 		if (cur->wakeup_tick <= ticks) {
-			elem = list_remove(elem);
+			le = list_remove(le);
 			thread_unblock(cur);
-		} else elem = list_next(elem);
+		} else le = list_next(le);
 	}
 }
 
