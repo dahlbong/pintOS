@@ -66,11 +66,19 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
+		// list_push_back (&sema->waiters, &thread_current ()->elem);
 		thread_block ();
 	}
 	sema->value--;
 	intr_set_level (old_level);
+}
+
+static bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+	// 각각의 list_elem을 포함하는 thread 구조체로 변환
+    struct thread *thread_a = list_entry(a, struct thread, elem);
+    struct thread *thread_b = list_entry(b, struct thread, elem);
+	return thread_a->priority > thread_b->priority;
 }
 
 /* Down or "P" operation on a semaphore, but only if the
