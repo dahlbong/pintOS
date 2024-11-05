@@ -63,7 +63,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
-static bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -256,7 +256,7 @@ thread_unblock (struct thread *t) {
 	intr_set_level (old_level);
 }
 
-static bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
 	// 각각의 list_elem을 포함하는 thread 구조체로 변환
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
