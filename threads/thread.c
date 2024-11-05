@@ -184,6 +184,8 @@ thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
 	struct thread *t;
 	tid_t tid;
+	struct thread *running_t;
+	enum intr_level old_level;	
 
 	ASSERT (function != NULL);
 
@@ -207,8 +209,12 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	old_level = intr_disable();	
 	/* Add to run queue. */
-	thread_unblock (t);
+	thread_unblock (t);											// ready_list에 새로 생성한 쓰레드 삽입하기
+	running_t = thread_current();
+	if (cmp_priority(&t, &running_t, NULL)) thread_yield();		// 새로 생성한 쓰레드가 실행중인 쓰레드보다 크면 cpu 양보
+	intr_level(old_level);
 
 	return tid;
 }
