@@ -191,20 +191,12 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
-	struct thread *cur = thread_current();
-
-	if (lock->holder != NULL && lock->holder->priority < cur->priority) {
-		cur->waiting_lock = lock;
-		donate_priority(lock->holder, cur->priority);
-	}
-
 	sema_down (&lock->semaphore);
-	cur->waiting_lock = NULL;
 	lock->holder = thread_current ();
 }
 
 /* 우선순위 기부 로직 */
-void donate_priority(struct thread *t, int new_priority) {
+donate_priority(struct thread *t, int new_priority) {
     if (t->priority < new_priority) {
         t->priority = new_priority;
         list_insert_ordered(&t->donations, &thread_current()->elem, cmp_priority, NULL);
