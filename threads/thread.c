@@ -364,11 +364,17 @@ thread_awake(int64_t ticks) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+	struct thread *cur = thread_current();
+	cur->priority = new_priority;
+
+	enum intr_level old_level = intr_disable();
+
 	if (!list_empty(&ready_list)) {
+		list_sort(&ready_list, cmp_priority, NULL);
 		struct thread *highest_p = list_entry(list_front(&ready_list), struct thread, elem);	// 우선순위 제일 큰 쓰레드 찾아내기
 		if (highest_p->priority > new_priority) thread_yield();									// 현재 실행중인 쓰레드보다 우선순위가 크다면 CPU 넘겨주기
 	}
+	intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -465,7 +471,11 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->original_pri = priority;		// 기본 우선순위
+	list_init(&t->donations);		// 우선순위 상속받은 스레드 리스트
+	t->waiting_lock = NULL;			// 현재 기다리고 있는 lock
 	t->magic = THREAD_MAGIC;
+
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
