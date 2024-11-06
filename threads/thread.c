@@ -200,9 +200,9 @@ thread_create (const char *name, int priority,
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
-	t->tf.rip = (uintptr_t) kernel_thread;
-	t->tf.R.rdi = (uint64_t) function;
-	t->tf.R.rsi = (uint64_t) aux;
+	t->tf.rip = (uintptr_t) kernel_thread;	//rip: 명령어 포인터
+	t->tf.R.rdi = (uint64_t) function;		//rdi: 함수 인자 전달 용도
+	t->tf.R.rsi = (uint64_t) aux;			//rsi: 보조데이터 전달 용도 (ex. 파일 포인터, 작업 설정값 등)
 	t->tf.ds = SEL_KDSEG;
 	t->tf.es = SEL_KDSEG;
 	t->tf.ss = SEL_KDSEG;
@@ -364,8 +364,13 @@ thread_awake(int64_t ticks) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current()->priority = new_priority;
-	thread_preemption();
+    struct thread *cur = thread_current();
+    cur->original_pri = new_priority;
+
+    if (list_empty(&cur->donations) || new_priority > cur->priority) {
+        cur->priority = new_priority;
+        thread_preemption();
+    }
 }
 
 void thread_preemption(void) {
