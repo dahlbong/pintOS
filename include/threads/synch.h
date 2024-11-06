@@ -9,13 +9,13 @@ struct semaphore {
 	unsigned value;             /* Current value. */
 	struct list waiters;        /* List of waiting threads. */
 };
-void donate_priority(struct thread *t, int new_priority);
 
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
+bool cmp_priority_s(const struct list_elem *, const struct list_elem *, void *aux);
 
 /* Lock. */
 struct lock {
@@ -23,7 +23,7 @@ struct lock {
 	struct semaphore semaphore; /* Binary semaphore controlling access. */
 };
 
-void donate_priority(struct thread *, int);
+void donate_priority(void);
 void lock_init (struct lock *);
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
