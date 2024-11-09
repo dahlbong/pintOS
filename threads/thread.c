@@ -363,6 +363,11 @@ thread_awake(int64_t ticks) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
+	if (thread_mlfqs) {		// MLFQ 스케줄링 시 set_priority 비활성화
+	printf("using advanced schedular\n");
+	return;
+    }
+
     struct thread *cur = thread_current();
     cur->original_pri = new_priority;
 
@@ -400,14 +405,15 @@ thread_get_nice (void) {
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) {
-	/* TODO: Your implementation goes here */
+	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
 	return 0;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) {
-	/* TODO: Your implementation goes here */
+	// recent_cpu = decay * recent_cpu + nice
+	// decay = (2 * load_avg) / (2 * load_avg + 1)
 	return 0;
 }
 
