@@ -4,7 +4,7 @@
 #include <list.h>
 #include <stdbool.h>
 
-/* A counting semaphore. */
+/* A counting semaphore. */ 
 struct semaphore {
 	unsigned value;             /* Current value. */
 	struct list entry;        /* List of waiting threads. */

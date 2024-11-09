@@ -477,6 +477,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	// t->waiting_lock = NULL;			// 현재 기다리고 있는 lock
 	t->magic = THREAD_MAGIC;
 
+	t->recent_cpu = 0;
+	t->nice = 0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

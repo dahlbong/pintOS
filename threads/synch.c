@@ -208,8 +208,7 @@ lock_acquire (struct lock *lock) {
 
 /* 우선순위 기부 로직 */
 void donate_priority(void) {
-    struct thread *cur = thread_current();
-    struct thread *t = cur;
+    struct thread *t = thread_current();
 
     while (t->waiting_lock != NULL) {
         struct thread *holder = t->waiting_lock->holder;
