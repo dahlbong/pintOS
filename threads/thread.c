@@ -421,17 +421,39 @@ increase_recentcpu(void) {
 
 void
 cal_priority(struct thread *cur) {
-	// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
-	if (cur != idle_thread)
-		cur->priority = F_TO_I((SUB(PRI_MAX, DIVIDE_INT(cur->recent_cpu, 4)), MULTIPLY_INT(cur->nice, 2)));
+	
+    if (cur != idle_thread) {
+		// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
+        int new_priority = F_TO_I(SUB(I_TO_F(PRI_MAX),
+                                  ADD(DIVIDE_INT(cur->recent_cpu, 4), MULTIPLY_INT(I_TO_F(cur->nice), 2))));
+        if (new_priority > PRI_MAX)
+            new_priority = PRI_MAX;
+        else if (new_priority < PRI_MIN)
+            new_priority = PRI_MIN;
+
+        int old_priority = cur->priority;
+        cur->priority = new_priority;
+
+        if (old_priority != new_priority && !intr_context()) {
+            /* 인터럽트 컨텍스트가 아닌 경우에만 ready_list 수정 */
+            enum intr_level old_level = intr_disable();
+            if (cur->status == THREAD_READY) {
+                list_remove(&cur->elem);
+                list_insert_ordered(&ready_list, &cur->elem, cmp_priority, NULL);
+            }
+            intr_set_level(old_level);
+        }
+    }
 }
 
 void
 cal_recentcpu(struct thread *cur) {
-	// recent_cpu = decay * recent_cpu + nice
-	// decay = (2 * load_avg) / (2 * load_avg + 1)
-	int decay = DIVIDE(MULTIPLY_INT(load_avg, 2), MULTIPLY_INT(ADD_INT(load_avg, 1), 2));
-	cur->recent_cpu = ADD_INT(MULTIPLY(cur->recent_cpu, decay), cur->nice);
+    if (cur != idle_thread) {
+        /* decay = (2 * load_avg) / (2 * load_avg + 1) */
+        int decay = DIVIDE(MULTIPLY_INT(load_avg, 2), ADD_INT(MULTIPLY_INT(load_avg, 2), 1));
+		// recent_cpu = decay * recent_cpu + nice
+        cur->recent_cpu = ADD(MULTIPLY(decay, cur->recent_cpu), I_TO_F(cur->nice));
+    }
 }
 
 void
@@ -441,20 +463,19 @@ cal_loadavg(void) {
     	ready_threads ++;
 
 	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
-	load_avg =  ADD(MULTIPLY(DIVIDE(I_TO_F(59), I_TO_F(60)), load_avg), 
-                     MULTIPLY_INT(DIVIDE(I_TO_F(1), I_TO_F(60)), ready_threads));
+	load_avg = ADD(MULTIPLY(DIVIDE(I_TO_F(59), I_TO_F(60)), load_avg),
+                   MULTIPLY(DIVIDE(I_TO_F(1), I_TO_F(60)), I_TO_F(ready_threads)));
 }
 
-update_all_thread(void (*func)(struct thread *t, void *aux))
+void update_all_thread(void (*func)(struct thread *t))
 {
-    enum intr_level old_level;
-	intr_disable();
+    enum intr_level old_level = intr_disable();;
     struct list_elem *e;
 
     /* 모든 스레드를 포함하는 all_list만 순회 */
     for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
         struct thread *t = list_entry(e, struct thread, all_elem);
-        func(t, NULL);
+        func(t);
     }
 	intr_set_level(old_level);
 }
