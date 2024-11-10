@@ -1,21 +1,17 @@
+typedef int64_t fixed_t;
 
-// 고정소수점 변환을 위한 비트 시프트 값
-#define FRACTION (1 << 14)         
+#define FP_SHIFT_AMOUNT 16 // 소수점 이하 16비트 사용
 
-// 정수를 고정소수점으로 변환
-#define I_TO_F(n) ((n) * FRACTION)
+#define I_TO_F(n) ((fixed_t)(n) << FP_SHIFT_AMOUNT)
+#define F_TO_I(x) ((x) >= 0 ? \
+    (((x) + (1 << (FP_SHIFT_AMOUNT - 1))) >> FP_SHIFT_AMOUNT) : \
+    (((x) - (1 << (FP_SHIFT_AMOUNT - 1))) >> FP_SHIFT_AMOUNT))
 
-// 고정소수점을 정수로 변환
-#define F_TO_I(x) (((x) >= 0) ? (((x) + FRACTION / 2) / FRACTION) : (((x) - FRACTION / 2) / FRACTION))
-
-// 고정소수점 & 고정소수점 연산
 #define ADD(x, y) ((x) + (y))
 #define SUB(x, y) ((x) - (y))
-#define MULTIPLY(x, y) (((int64_t)(x)) * (y) / FRACTION)
-#define DIVIDE(x, y) (((int64_t)(x)) * FRACTION / (y))
-
-// 정수 & 고정소수점 연산
-#define ADD_INT(x, n) ((x) + I_TO_F(n))
-#define SUB_INT(x, n) ((x) - I_TO_F(n))
+#define ADD_INT(x, n) ((x) + ((fixed_t)(n) << FP_SHIFT_AMOUNT))
+#define SUB_INT(x, n) ((x) - ((fixed_t)(n) << FP_SHIFT_AMOUNT))
+#define MULTIPLY(x, y) ((fixed_t)(((int64_t)(x)) * (y) >> FP_SHIFT_AMOUNT))
 #define MULTIPLY_INT(x, n) ((x) * (n))
+#define DIVIDE(x, y) ((fixed_t)((((int64_t)(x)) * (1 << FP_SHIFT_AMOUNT)) / (y)))
 #define DIVIDE_INT(x, n) ((x) / (n))

@@ -58,7 +58,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
-int load_avg;
+fixed_t load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -118,13 +118,15 @@ thread_init (void) {
 	list_init (&sleep_list);
 	list_init (&all_list);
 	list_init (&destruction_req);
-	load_avg =0;
+	load_avg = 0;
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+	initial_thread->nice = 0;
+	initial_thread->recent_cpu = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -337,7 +339,6 @@ thread_exit (void) {
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
-	list_remove(&thread_current()->all_elem);
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
 }
@@ -429,8 +430,7 @@ cal_priority(struct thread *cur) {
 	
     if (cur != idle_thread) {
 		// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
-        int new_priority = F_TO_I(SUB(I_TO_F(PRI_MAX),
-                                  ADD(DIVIDE_INT(cur->recent_cpu, 4), MULTIPLY_INT(I_TO_F(cur->nice), 2))));
+        int new_priority =PRI_MAX - F_TO_I(DIVIDE_INT(cur->recent_cpu, 4)) - (cur->nice * 2);
         if (new_priority > PRI_MAX)
             new_priority = PRI_MAX;
         else if (new_priority < PRI_MIN)
@@ -456,23 +456,31 @@ cal_priority(struct thread *cur) {
 
 void
 cal_recentcpu(struct thread *cur) {
-    if (cur != idle_thread) {
-        /* decay = (2 * load_avg) / (2 * load_avg + 1) */
-        int decay = DIVIDE(MULTIPLY_INT(load_avg, 2), ADD_INT(MULTIPLY_INT(load_avg, 2), 1));
-		// recent_cpu = decay * recent_cpu + nice
-        cur->recent_cpu = ADD(MULTIPLY(decay, cur->recent_cpu), I_TO_F(cur->nice));
-    }
+    if (cur == idle_thread){
+		return;
+	}
+	// t->recent_cpu = (2*(load_avg))/(2*(load_avg)+1)*(t->recent_cpu) + t->nice;
+
+	int decay;
+
+	decay = DIVIDE(MULTIPLY_INT(load_avg, 2), ADD_INT(MULTIPLY_INT(load_avg, 2), 1));
+	cur->recent_cpu = ADD_INT( MULTIPLY(decay, cur->recent_cpu), cur->nice);
 }
 
 void
 cal_loadavg(void) {
-	int ready_threads = list_size (&ready_list);
-	if (thread_current() != idle_thread)
-    	ready_threads ++;
-	printf("ready thread: %d\r\n", ready_threads);
-	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
-	load_avg = ADD(MULTIPLY(DIVIDE(I_TO_F(59), I_TO_F(60)), load_avg),
-                   MULTIPLY(DIVIDE(I_TO_F(1), I_TO_F(60)), I_TO_F(ready_threads)));
+    int ready_threads;
+    fixed_t term1, term2;
+
+    // 준비 상태 스레드 수 계산 (idle_thread 제외)
+    ready_threads = list_size(&ready_list);
+    if (thread_current() != idle_thread)
+        ready_threads++;
+
+    // load_avg = (59/60) * load_avg + (1/60) * ready_threads
+    term1 = MULTIPLY(DIVIDE_INT(I_TO_F(59), 60), load_avg);
+    term2 = MULTIPLY_INT(DIVIDE_INT(I_TO_F(1), 60), ready_threads);
+    load_avg = ADD(term1, term2);
 }
 
 void update_all_thread(void (*func)(struct thread *t))
@@ -500,7 +508,7 @@ thread_set_nice (int nice UNUSED) {
 	enum intr_level old_level = intr_disable ();
 	thread_current ()->nice = nice;
 	cal_priority(thread_current());
-	// thread_preemption();
+	thread_preemption();
 	intr_set_level (old_level);
 }
 
@@ -508,7 +516,7 @@ thread_set_nice (int nice UNUSED) {
 int
 thread_get_nice (void) {
 	enum intr_level old_level = intr_disable ();
-	int nice = thread_current ()-> nice;
+	int64_t nice = thread_current ()-> nice;
 	intr_set_level (old_level);
 	return nice;
 }
@@ -525,11 +533,11 @@ thread_get_load_avg (void) {
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) {
+
 	enum intr_level old_level = intr_disable ();
-	int recent_cpu= F_TO_I(MULTIPLY_INT(thread_current ()->recent_cpu, 100));
+	int get_value= F_TO_I(MULTIPLY_INT(thread_current ()->recent_cpu, 100));
 	intr_set_level (old_level);
-	return recent_cpu;
-	return 0;
+	return get_value;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -574,7 +582,7 @@ static void
 kernel_thread (thread_func *function, void *aux) {
 	ASSERT (function != NULL);
 
-	intr_enable ();       /* The scheduler runs with interrupts off. */
+	intr_enable ();       /* The scheduler runs with interrupts off. */ 
 	function (aux);       /* Execute the thread function. */
 	thread_exit ();       /* If function() returns, kill the thread. */
 }
@@ -593,8 +601,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 
-	t->recent_cpu = 0;				// 기본값 0
-	t->nice = 0;					// 기본값 0
+	t->recent_cpu = running_thread()->recent_cpu;				// 기본값 0
+	t->nice = running_thread()->nice;					// 기본값 0
 
 	t->priority = priority;
 	t->original_pri = priority;		// 기본 우선순위
@@ -724,6 +732,7 @@ do_schedule(int status) {
 	while (!list_empty (&destruction_req)) {
 		struct thread *victim =
 			list_entry (list_pop_front (&destruction_req), struct thread, elem);
+			list_remove(&victim->all_elem);
 		palloc_free_page(victim);
 	}
 	thread_current ()->status = status;
