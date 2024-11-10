@@ -364,10 +364,8 @@ thread_awake(int64_t ticks) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	if (thread_mlfqs) {		// MLFQ 스케줄링 시 set_priority 비활성화
-	printf("using advanced schedular\n");
-	return;
-    }
+	if (thread_mlfqs)		// MLFQ 스케줄링 시 set_priority 비활성화
+		return;
 
     struct thread *cur = thread_current();
     cur->original_pri = new_priority;
@@ -478,16 +476,16 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
+
+	load_avg =0;
+	t->recent_cpu = 0;				// 기본값 0
+	t->nice = 0;					// 기본값 0
+
 	t->priority = priority;
 	t->original_pri = priority;		// 기본 우선순위
 	list_init(&t->donations);		// 우선순위 상속받은 스레드 리스트
 	// t->waiting_lock = NULL;			// 현재 기다리고 있는 lock
 	t->magic = THREAD_MAGIC;
-
-	t->recent_cpu = 0;				// 기본값 0
-	t->nice = 0;					// 기본값 0
-	
-	load_avg =0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
