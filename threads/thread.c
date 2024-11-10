@@ -394,15 +394,18 @@ increase_recentcpu(void) {
 }
 
 void
-cal_priority(struct thread *cur) {
+cal_priority(struct thread *cur, void *aux) {
 	// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
+	if (cur != idle_thread)
+		cur->priority = F_TO_I((SUB(PRI_MAX, DIVIDE_INT(cur->recent_cpu, 4)), MULTIPLY_INT(cur->nice, 2)));
 }
 
 void
-cal_recentcpu(struct thread *cur) {
+cal_recentcpu(struct thread *cur, void *aux) {
 	// recent_cpu = decay * recent_cpu + nice
 	// decay = (2 * load_avg) / (2 * load_avg + 1)
-
+	float decay = (MULTIPLY_INT(load_avg, 2), MULTIPLY_INT(ADD_INT(load_avg, 1), 2));
+	cur->recent_cpu = F_TO_I(ADD(MULTIPLY(cur->recent_cpu, decay), cur->nice));
 }
 
 void
@@ -420,7 +423,7 @@ update_all_thread (void (*func)(struct thread *t, void *aux), void *aux) {
     /* 모든 스레드를 포함하는 all_list만 순회 */
     for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
         struct thread *t = list_entry(e, struct thread, all_elem);
-        func(t, aux);
+        func(t, NULL);
     }
 	intr_set_level(old_level);
 }
