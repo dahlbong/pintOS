@@ -280,9 +280,7 @@ thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 
-	if (intr_context())
-		list_push_back (&ready_list, &t->elem);
-	else
+	if (t != idle_thread) 
 		list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);		
 
 	t->status = THREAD_READY;
@@ -339,6 +337,7 @@ thread_exit (void) {
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
+	list_remove(&thread_current()->all_elem);
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
 }
@@ -468,9 +467,9 @@ cal_recentcpu(struct thread *cur) {
 void
 cal_loadavg(void) {
 	int ready_threads = list_size (&ready_list);
-	if (thread_current () != idle_thread)
+	if (thread_current() != idle_thread)
     	ready_threads ++;
-
+	printf("ready thread: %d\r\n", ready_threads);
 	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
 	load_avg = ADD(MULTIPLY(DIVIDE(I_TO_F(59), I_TO_F(60)), load_avg),
                    MULTIPLY(DIVIDE(I_TO_F(1), I_TO_F(60)), I_TO_F(ready_threads)));
@@ -478,7 +477,7 @@ cal_loadavg(void) {
 
 void update_all_thread(void (*func)(struct thread *t))
 {
-    enum intr_level old_level = intr_disable();;
+    // enum intr_level old_level = intr_disable();
     struct list_elem *e;
 
     /* 모든 스레드를 포함하는 all_list만 순회 */
@@ -486,7 +485,7 @@ void update_all_thread(void (*func)(struct thread *t))
         struct thread *t = list_entry(e, struct thread, all_elem);
         func(t);
     }
-	intr_set_level(old_level);
+	// intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -501,7 +500,7 @@ thread_set_nice (int nice UNUSED) {
 	enum intr_level old_level = intr_disable ();
 	thread_current ()->nice = nice;
 	cal_priority(thread_current());
-	thread_preemption();
+	// thread_preemption();
 	intr_set_level (old_level);
 }
 
