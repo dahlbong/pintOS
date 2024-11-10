@@ -442,7 +442,11 @@ thread_get_priority (void) {
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) {
-	/* TODO: Your implementation goes here */
+	enum intr_level old_level = intr_disable ();
+	thread_current ()->nice = nice;
+	mlfqs_calculate_priority (thread_current ());
+	thread_preemption();
+	intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
