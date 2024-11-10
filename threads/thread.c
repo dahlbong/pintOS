@@ -405,7 +405,7 @@ cal_recentcpu(struct thread *cur, void *aux) {
 	// recent_cpu = decay * recent_cpu + nice
 	// decay = (2 * load_avg) / (2 * load_avg + 1)
 	float decay = (MULTIPLY_INT(load_avg, 2), MULTIPLY_INT(ADD_INT(load_avg, 1), 2));
-	cur->recent_cpu = F_TO_I(ADD(MULTIPLY(cur->recent_cpu, decay), cur->nice));
+	cur->recent_cpu = ADD_INT(MULTIPLY(cur->recent_cpu, decay), cur->nice);
 }
 
 void
