@@ -415,11 +415,10 @@ cal_loadavg(void) {
     	ready_threads ++;
 
 	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
-	load_avg =  add_fp (mult_fp (div_fp (int_to_fp (59), int_to_fp (60)), load_avg), 
-                     mult_mixed (div_fp (int_to_fp (1), int_to_fp (60)), ready_threads));
+	load_avg =  ADD(MULTIPLY(DIVIDE(I_TO_F(59), I_TO_F(60)), load_avg), 
+                     MULTIPLY_INT(DIVIDE(I_TO_F(1), I_TO_F(60)), ready_threads));
 }
 
-void
 update_all_thread (void (*func)(struct thread *t, void *aux), void *aux) {
     enum intr_level old_level;
 	intr_disable();
