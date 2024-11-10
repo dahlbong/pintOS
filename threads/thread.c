@@ -410,8 +410,13 @@ cal_recentcpu(struct thread *cur, void *aux) {
 
 void
 cal_loadavg(void) {
-	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
+	int ready_threads = list_size (&ready_list);
+	if (thread_current () != idle_thread)
+    	ready_threads ++;
 
+	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
+	load_avg =  add_fp (mult_fp (div_fp (int_to_fp (59), int_to_fp (60)), load_avg), 
+                     mult_mixed (div_fp (int_to_fp (1), int_to_fp (60)), ready_threads));
 }
 
 void
