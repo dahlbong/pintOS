@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/calc.h"
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -28,6 +29,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 static struct list sleep_list;
+static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -112,6 +114,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&sleep_list);
+	list_init (&all_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -212,6 +215,7 @@ thread_create (const char *name, int priority,
 
 	old_level = intr_disable();	
 	/* Add to run queue. */
+	list_push_back(&all_list, &t->all_elem);
 	thread_unblock (t);											// ready_list에 새로 생성한 쓰레드 삽입하기
 	thread_preemption();
 	intr_set_level(old_level);
@@ -382,6 +386,45 @@ void thread_preemption(void) {
 			thread_yield();
 	}
 }
+
+void
+increase_recentcpu(void) {
+	if (thread_current () != idle_thread)
+	    thread_current()->recent_cpu = ADD_INT(thread_current ()->recent_cpu, 1);
+}
+
+void
+cal_priority(struct thread *cur) {
+	// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
+}
+
+void
+cal_recentcpu(struct thread *cur) {
+	// recent_cpu = decay * recent_cpu + nice
+	// decay = (2 * load_avg) / (2 * load_avg + 1)
+
+}
+
+void
+cal_loadavg(void) {
+	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
+
+}
+
+void
+update_all_thread (void (*func)(struct thread *t, void *aux), void *aux) {
+    enum intr_level old_level;
+	intr_disable();
+    struct list_elem *e;
+
+    /* 모든 스레드를 포함하는 all_list만 순회 */
+    for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+        struct thread *t = list_entry(e, struct thread, all_elem);
+        func(t, aux);
+    }
+	intr_set_level(old_level);
+}
+
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) {
@@ -404,15 +447,14 @@ thread_get_nice (void) {
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) {
-	// load_avg = (59/60) * load_avg + (1/60) * ready_threads
+
 	return 0;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) {
-	// recent_cpu = decay * recent_cpu + nice
-	// decay = (2 * load_avg) / (2 * load_avg + 1)
+
 	return 0;
 }
 
