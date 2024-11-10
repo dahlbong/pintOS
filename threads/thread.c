@@ -280,8 +280,11 @@ thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 
-	// list_push_back (&ready_list, &t->elem);  --- 기존 코드 
-	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);		
+	if (intr_context())
+		list_push_back (&ready_list, &t->elem);
+	else
+		list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);		
+		
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -441,6 +444,9 @@ cal_priority(struct thread *cur) {
                 list_remove(&cur->elem);
                 list_insert_ordered(&ready_list, &cur->elem, cmp_priority, NULL);
             }
+			if (cur == thread_current() && old_priority < new_priority) 
+                thread_preemption();
+
             intr_set_level(old_level);
         }
     }
