@@ -160,7 +160,7 @@ void increase_recentcpu(void);
 void cal_priority(struct thread *);
 void cal_recentcpu(struct thread *);
 void cal_loadavg(void);
-void update_all_thread(void (*func));
+void update_all_thread(void (*func)(struct thread *), void *aux);
 
 void do_iret (struct intr_frame *tf);
 

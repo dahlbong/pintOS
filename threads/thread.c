@@ -11,9 +11,11 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/calc.h"
+#include "devices/timer.h"
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "thread.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -116,6 +118,7 @@ thread_init (void) {
 	list_init (&sleep_list);
 	list_init (&all_list);
 	list_init (&destruction_req);
+	load_avg =0;
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -159,6 +162,29 @@ thread_tick (void) {
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
 		intr_yield_on_return ();
+
+    /* MLFQS 스케줄러 업데이트 */
+    if (thread_mlfqs) {
+        /* 매 틱마다 현재 스레드의 recent_cpu 증가 */
+        if (t != idle_thread)
+            t->recent_cpu = ADD_INT(t->recent_cpu, 1);
+
+        /* 매 초마다 load_avg와 모든 스레드의 recent_cpu 업데이트 */
+        if (timer_ticks() % TIMER_FREQ == 0) {
+            cal_loadavg();
+            update_all_thread(cal_recentcpu);
+        }
+
+        /* 매 4틱마다 모든 스레드의 우선순위 업데이트 */
+        if (timer_ticks() % 4 == 0) {
+            update_all_thread(cal_priority);
+            /* 현재 스레드의 우선순위가 변경되었을 수 있으므로 선점 여부 확인 */
+            if (!list_empty(&ready_list) && 
+                thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority) {
+                intr_yield_on_return();
+            }
+        }
+    }
 }
 
 /* Prints thread statistics. */
@@ -394,17 +420,17 @@ increase_recentcpu(void) {
 }
 
 void
-cal_priority(struct thread *cur, void *aux) {
+cal_priority(struct thread *cur) {
 	// priority = PRI_MAX - (recent_cpu/4) - (nice * 2)
 	if (cur != idle_thread)
 		cur->priority = F_TO_I((SUB(PRI_MAX, DIVIDE_INT(cur->recent_cpu, 4)), MULTIPLY_INT(cur->nice, 2)));
 }
 
 void
-cal_recentcpu(struct thread *cur, void *aux) {
+cal_recentcpu(struct thread *cur) {
 	// recent_cpu = decay * recent_cpu + nice
 	// decay = (2 * load_avg) / (2 * load_avg + 1)
-	float decay = (MULTIPLY_INT(load_avg, 2), MULTIPLY_INT(ADD_INT(load_avg, 1), 2));
+	int decay = DIVIDE(MULTIPLY_INT(load_avg, 2), MULTIPLY_INT(ADD_INT(load_avg, 1), 2));
 	cur->recent_cpu = ADD_INT(MULTIPLY(cur->recent_cpu, decay), cur->nice);
 }
 
@@ -419,7 +445,8 @@ cal_loadavg(void) {
                      MULTIPLY_INT(DIVIDE(I_TO_F(1), I_TO_F(60)), ready_threads));
 }
 
-update_all_thread (void (*func)(struct thread *t, void *aux), void *aux) {
+update_all_thread(void (*func)(struct thread *t, void *aux))
+{
     enum intr_level old_level;
 	intr_disable();
     struct list_elem *e;
@@ -443,7 +470,7 @@ void
 thread_set_nice (int nice UNUSED) {
 	enum intr_level old_level = intr_disable ();
 	thread_current ()->nice = nice;
-	cal_priority(thread_current(), NULL);
+	cal_priority(thread_current());
 	thread_preemption();
 	intr_set_level (old_level);
 }
@@ -537,7 +564,6 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 
-	load_avg =0;
 	t->recent_cpu = 0;				// 기본값 0
 	t->nice = 0;					// 기본값 0
 

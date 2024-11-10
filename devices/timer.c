@@ -124,17 +124,6 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();		// update the cpu usage for running process
-
-	if (thread_mlfqs) {
-		increase_recentcpu ();
-		if (ticks % 4 == 0) {
-			update_all_thread(cal_priority);
-			if (ticks % TIMER_FREQ == 0) {
-				update_all_thread(cal_recentcpu);
-				cal_loadavg();
-			}
-		}
-	}
 	thread_awake(ticks);
 }
 
