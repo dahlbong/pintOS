@@ -163,5 +163,5 @@ void cal_loadavg(void);
 void update_all_thread(void (*func)(struct thread *));
 
 void do_iret (struct intr_frame *tf);
-static struct list ready_list;
+
 #endif /* threads/thread.h */
