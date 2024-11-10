@@ -444,7 +444,7 @@ void
 thread_set_nice (int nice UNUSED) {
 	enum intr_level old_level = intr_disable ();
 	thread_current ()->nice = nice;
-	mlfqs_calculate_priority (thread_current ());
+	cal_priority(thread_current(), NULL);
 	thread_preemption();
 	intr_set_level (old_level);
 }
@@ -461,15 +461,17 @@ thread_get_nice (void) {
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) {
-
-	return 0;
+	enum intr_level old_level = intr_disable();
+	int get_value = F_TO_I(MULTIPLY_INT(load_avg, 100));
+	intr_set_level(old_level);
+	return get_value;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) {
 	enum intr_level old_level = intr_disable ();
-	int recent_cpu= fp_to_int_round (mult_mixed (thread_current ()->recent_cpu, 100));
+	int recent_cpu= F_TO_I(MULTIPLY_INT(thread_current ()->recent_cpu, 100));
 	intr_set_level (old_level);
 	return recent_cpu;
 	return 0;
