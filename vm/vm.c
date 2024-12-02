@@ -94,6 +94,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 		uninit_new(page, upage, init, type, aux, initializer);
 		page->writable = writable;
+		page->owner = thread_current();
 		return spt_insert_page(spt, page);
 	}
 err:
@@ -147,6 +148,14 @@ vm_get_victim (void) {
 	struct list_elem *e;
 	for(e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e)) {
 		victim = list_entry(e, struct frame, elem);
+		struct page *page = victim->page;
+		if (page == NULL)
+			continue;
+		
+		struct thread *owner = page->owner;
+		if (owner == NULL || owner->pml4 == NULL)
+			continue;
+
 		if(pml4_is_accessed(curr->pml4, victim->page->va))  // check frame is accessed recently
 			pml4_set_accessed(curr->pml4, victim->page->va, false);  // if accessed, init access bit (false)
 		else  // else return victim frame

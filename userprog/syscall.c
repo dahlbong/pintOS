@@ -342,7 +342,7 @@ void munmap(void *addr) {
 }
 
 void check_valid_buffer(void *buffer, size_t size, void *rsp, bool writable) {
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i += 8) {
         /* buffer가 spt에 존재하는지 검사 */
         struct page *page = addr_validation(buffer + i);
         if (page == NULL)

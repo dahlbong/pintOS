@@ -25,6 +25,7 @@
 #endif
 
 #include "threads/synch.h"
+#include "userprog/syscall.h"
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
@@ -196,27 +197,31 @@ __do_fork (void *aux) {
 
 	/* [TODO] 부모 프로세스의 파일 디스크립터 테이블 복제 (file_duplicate() 사용)
 			  부모는 자식의 리소스 복제가 완료될 때까지 반환되지 않아야함. */
-	for (int i = 0; i < FDT_COUNT_LIMIT; i++) {
+	current->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (current->fd_table == NULL)
+		goto error;
+	current->fd_table[0] = parent->fd_table[0];
+	current->fd_table[1] = parent->fd_table[1];
+	for (int i = 2; i < FDT_COUNT_LIMIT; i++) {
 		struct file *file = parent->fd_table[i];
 		if (file == NULL)
 			continue;
-		if (file > 2)
-			file = file_duplicate(file);
-		current->fd_table[i] = file;
+    current->fd_table[i] = file_duplicate(file);
 	}
 	current->next_fd = parent->next_fd;
 	sema_up (&current->load_sema);
-	process_init ();
+	
 	do_iret(&if_);
-	NOT_REACHED();
+	process_init ();
+	// NOT_REACHED();
 
 	/* Finally, switch to the newly created process. */
-	if (succ)
-		do_iret (&if_);
+	// if (succ)
+	// 	do_iret (&if_);
 error:
-	succ = false;
+	current->exit_status = -1;
 	sema_up(&current->load_sema);
-	exit(-1);
+	thread_exit();
 }
 
 /* Switch the current execution context to the f_name.
@@ -460,6 +465,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	/* Open executable file. */
+	lock_acquire(&filesys_lock);
 	file = filesys_open (file_name);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
@@ -547,6 +553,7 @@ load (const char *file_name, struct intr_frame *if_) {
 done:
 	/* We arrive here whether the load is successful or not. */
 	// file_close (file);
+	lock_release(&filesys_lock);
 	return success;
 }
 

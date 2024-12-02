@@ -53,6 +53,7 @@ struct page {
 	struct hash_elem elem;  // for supplemental_page_table
 	bool accessible;
 	bool writable;
+	struct thread *owner;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */

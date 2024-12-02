@@ -33,8 +33,8 @@ typedef int tid_t;
 #define RECENT_CPU_DEFAULT 0
 #define LOAD_AVG_DEFAULT 0
 
-#define FDT_PAGES 2
-#define FDT_COUNT_LIMIT 130
+#define FDT_PAGES 3
+#define FDT_COUNT_LIMIT (1 << 9)
 
 /* A kernel thread or user process.
  *

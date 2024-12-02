@@ -731,6 +731,8 @@ void donate_priority(void)
 		if (!cur->wait_on_lock)
 			break;
 		struct thread *holder = cur->wait_on_lock->holder;
+		if (!holder)
+			break;
 		holder->priority = cur->priority;
 		cur = holder;
 	}
