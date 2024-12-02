@@ -300,15 +300,17 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 	
-	struct hash_iterator *iter;
+	//struct hash_iterator *iter;
+	struct hash_iterator iter;
 	struct page *src_page, *dst_page;
 	enum vm_type type;
 	void *upage;
 	bool writable;
 
-	hash_first(iter, &src->spt_hash);
-	for(; iter != NULL; hash_next(iter)) {
-		src_page = hash_entry(hash_cur(iter), struct page, elem);
+	hash_first(&iter, &src->spt_hash);
+	// for(; iter != NULL; hash_next(iter)) {
+	while (hash_next(&iter)) {
+		src_page = hash_entry(hash_cur(&iter), struct page, elem);
 		type = src_page->operations->type;
 		upage = src_page->va;
 		writable = src_page->writable;
@@ -327,9 +329,12 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			if(!file_backed_initializer(dst_page, type, NULL))
 				return false;
 			
-			dst_page->frame = src_page->frame;
-			if(!pml4_set_page(thread_current()->pml4, dst_page->va, src_page->frame->kva, src_page->writable))
-				return false;
+			// dst_page->frame = src_page->frame;
+			// if(!pml4_set_page(thread_current()->pml4, dst_page->va, src_page->frame->kva, src_page->writable))
+			// 	return false;
+			if (!vm_claim_page(upage))	// 새 프레임 할당 후 데이터 복사
+                return false;
+            memcpy(dst_page->frame->kva, src_page->frame->kva, PGSIZE);
 		}
 
 		else if(type == VM_ANON) {  // if page is annonymous page
@@ -357,17 +362,25 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 }
 
 static bool vm_copy_claim_page(struct supplemental_page_table *dst, void *va, void *kva, bool writable) {
-struct page *page = spt_find_page(dst, va);
+	struct page *page = spt_find_page(dst, va);
     if (page == NULL)
         return false;
-    struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+
+    // struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+	struct frame *frame = vm_get_frame();
+	if (frame == NULL)
+		return false;
     /* Set links */
-    page->accessible = writable;
+    //page->accessible = writable;
     frame->page = page;
     page->frame = frame;
-    frame->kva = kva;
-    list_push_back(&frame_table, &frame->elem);
-    if (!pml4_set_page(thread_current()->pml4, page->va, frame->kva, 0))
+    //frame->kva = kva;
+	// 부모의 데이터를 자식의 kva로 복사
+    memcpy(frame->kva, kva, PGSIZE);
+
+    // list_push_back(&frame_table, &frame->elem);
+    if (!pml4_set_page(thread_current()->pml4, page->va, frame->kva, writable))
         return false;
-    return swap_in(page, frame->kva);
+    // return swap_in(page, frame->kva);
+	return true;
 }

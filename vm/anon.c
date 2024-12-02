@@ -93,11 +93,11 @@ static void
 anon_destroy (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
 
-	if(anon_page->sector != BITMAP_ERROR)
-		bitmap_reset(swap_table, page->anon.sector);
+	// if(anon_page->sector != BITMAP_ERROR)
+	// 	bitmap_reset(swap_table, page->anon.sector);
 
-	if(page->frame != NULL) {
-		list_remove(&page->frame->elem);
-		free(page->frame);
-	}
+	// if(page->frame != NULL) {
+	// 	list_remove(&page->frame->elem);
+	// 	free(page->frame);
+	// }
 }
