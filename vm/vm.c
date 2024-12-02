@@ -308,7 +308,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	bool writable;
 
 	hash_first(&iter, &src->spt_hash);
-	// for(; iter != NULL; hash_next(iter)) {
+
 	while (hash_next(&iter)) {
 		src_page = hash_entry(hash_cur(&iter), struct page, elem);
 		type = src_page->operations->type;
@@ -319,36 +319,21 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			if(!vm_alloc_page_with_initializer(page_get_type(src_page),
 					src_page->va, src_page->writable, src_page->uninit.init, src_page->uninit.aux))
 				return false;
-		}
-
-		else if(type == VM_FILE) {  // if page is file
-			if(!vm_alloc_page_with_initializer(type, upage, writable, NULL, &src_page->file))
-				return false;
-			
-			dst_page = spt_find_page(dst, upage);  // copy data (memory->VM page)
-			if(!file_backed_initializer(dst_page, type, NULL))
-				return false;
-			
-			// dst_page->frame = src_page->frame;
-			// if(!pml4_set_page(thread_current()->pml4, dst_page->va, src_page->frame->kva, src_page->writable))
-			// 	return false;
-			if (!vm_claim_page(upage))	// 새 프레임 할당 후 데이터 복사
+		} else {
+            /* 이미 초기화된 페이지 처리 */
+            if (!vm_alloc_page(type, upage, writable))
                 return false;
+            if (!vm_claim_page(upage))
+                return false;
+
+            dst_page = spt_find_page(dst, upage);
+            if (dst_page == NULL)
+                return false;
+
+            /* 부모의 프레임에서 자식의 프레임으로 데이터 복사 */
             memcpy(dst_page->frame->kva, src_page->frame->kva, PGSIZE);
 		}
-
-		else if(type == VM_ANON) {  // if page is annonymous page
-			if(!vm_alloc_page(type, upage, writable))  // allocate and init page
-				return false;
-			
-			if(!vm_copy_claim_page(dst, upage, src_page->frame->kva, writable))
-				return false;
-		}
-
-		else
-			return false;
 	}
-
 	return true;
 }
 

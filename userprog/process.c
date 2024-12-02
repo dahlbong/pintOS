@@ -207,6 +207,8 @@ __do_fork (void *aux) {
 	current->next_fd = parent->next_fd;
 	sema_up (&current->load_sema);
 	process_init ();
+	do_iret(&if_);
+	NOT_REACHED();
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
