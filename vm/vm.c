@@ -4,6 +4,8 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 
+#include "lib/string.h"
+
 /* Project 2 */
 uint64_t hash_func(const struct hash_elem *e, void *aux) {
 	const struct page *p = hash_entry(e, struct page, elem);
@@ -206,13 +208,21 @@ vm_stack_growth (void *addr UNUSED) {
 /* Handle the fault on write_protected page */
 static bool
 vm_handle_wp (struct page *page UNUSED) {
-	void *kva = page->frame->kva;
+	void *old_kva = page->frame->kva;
 
-	page->frame->kva = palloc_get_page(PAL_USER);
-	memcpy(page->frame->kva, kva, PGSIZE);
+	void *new_kva = palloc_get_page(PAL_USER);	// 새 프레임 할당하고
+
+	if (new_kva == NULL)						// 할당 실패하면 false 처리
+		return false;
+
+	memcpy(new_kva, old_kva, PGSIZE);			// 기존 프레임 데이터 복사
+	page->frame->kva = new_kva;					// 페이지 프레임 업데이트
 
 	if(!pml4_set_page(thread_current()->pml4, page->va, page->frame->kva, page->accessible))
 		return false;
+
+	// 기존 프레임 해제
+    palloc_free_page(old_kva);
 	
 	return true;
 }
@@ -233,9 +243,12 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	if(addr == NULL || is_kernel_vaddr(addr))
 		return false;
 
-	if(!not_present && write)
-		return vm_handle_wp(page);
-	
+	if(!not_present && write) {
+        if (page == NULL || !page->writable)	// 페이지가 NULL이거나 쓰기 가능하지 않으면 처리 불가
+            return false;
+        return vm_handle_wp(page);
+    }
+    
 	if(page == NULL) {
 		void *stack_pointer = user ? f->rsp : curr->stack_pointer;
 		if (addr >= stack_pointer - 8 && addr >= STACK_LIMIT && addr < USER_STACK) {
