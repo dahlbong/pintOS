@@ -336,6 +336,11 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		upage = src_page->va;
 		writable = src_page->writable;
 
+		// 메모리 맵핑된 파일 페이지는 복사하지 않음
+        if (type == VM_FILE) {
+            continue;
+        }
+
 		if(type == VM_UNINIT) {  // if page is not yet init
 			if(!vm_alloc_page_with_initializer(page_get_type(src_page),
 					src_page->va, src_page->writable, src_page->uninit.init, src_page->uninit.aux))
