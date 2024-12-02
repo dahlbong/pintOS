@@ -193,14 +193,13 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
-
-	bool success = false;
+	void *page_addr = pg_round_down(addr);
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, addr, true)) {
-		success = vm_claim_page(addr);
-
-		if(success) {
-			thread_current()->stack_bottom -= PGSIZE;
-		}
+		if (vm_claim_page(page_addr)) {
+            struct thread *curr = thread_current();
+            if (page_addr < curr->stack_bottom)
+                curr->stack_bottom = page_addr;
+        }
 	}
 }
 
@@ -238,8 +237,8 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		return vm_handle_wp(page);
 	
 	if(page == NULL) {
-		void *stack_pointer = user == NULL ? f->rsp : curr->stack_pointer;
-		if(stack_pointer - 8 <= addr && addr >= STACK_LIMIT && addr <= USER_STACK) {
+		void *stack_pointer = user ? f->rsp : curr->stack_pointer;
+		if (addr >= stack_pointer - 8 && addr >= STACK_LIMIT && addr < USER_STACK) {
 			vm_stack_growth(curr->stack_bottom - PGSIZE);
 			return true;
 		}
